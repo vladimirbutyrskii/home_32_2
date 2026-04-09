@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from lms.models import Course, Lesson, Subscription
 from lms.validators import validate_youtube_link
+from drf_spectacular.utils import extend_schema_serializer, OpenApiExample
 
 
 class LessonSerializer(serializers.ModelSerializer):
@@ -17,6 +18,21 @@ class LessonSerializer(serializers.ModelSerializer):
         read_only_fields = ("owner",)
 
 
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "Пример курса",
+            value={
+                "name": "Python Basics",
+                "description": "Курс для начинающих",
+                "lessons_count": 10,
+                "is_subscribed": False,
+            },
+            request_only=False,
+            response_only=True,
+        )
+    ]
+)
 class CourseSerializer(serializers.ModelSerializer):
     lessons_count = serializers.IntegerField(source="lessons.count", read_only=True)
     lessons = LessonSerializer(many=True, read_only=True)
