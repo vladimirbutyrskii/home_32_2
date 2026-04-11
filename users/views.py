@@ -12,7 +12,13 @@ from users.serializers import (
     PaymentSerializer,
 )
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResponse
-from drf_spectacular.types import OpenApiTypes
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from django.conf import settings
+
+from lms.models import Course
+from users.services import process_payment, create_payment_intent
 
 
 @extend_schema_view(
@@ -102,3 +108,66 @@ class PaymentListView(generics.ListAPIView):
             return Payment.objects.all()
         return Payment.objects.filter(payer=user)
 
+
+class CreatePaymentView(APIView):
+    """Эндпоинт для создания платежа через Stripe"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        course_id = request.data.get("course_id")
+        if not course_id:
+            return Response(
+                {"error": "Необходимо указать course_id"},
+                status=400,
+            )
+
+        course = get_object_or_404(Course, id=course_id)
+
+        # Цена курса (можно добавить поле price в модель Course)
+        # Для примера используем фиксированную цену
+        amount = 1000.00
+
+        # Формируем URL для успешной оплаты и отмены
+        success_url = request.build_absolute_uri("/payment/success/")
+        cancel_url = request.build_absolute_uri("/payment/cancel/")
+
+        try:
+            payment_data = process_payment(
+                user=request.user,
+                course=course,
+                amount=amount,
+                success_url=success_url,
+                cancel_url=cancel_url,
+            )
+            return Response(payment_data, status=200)
+
+        except Exception as e:
+            return Response(
+                {"error": f"Ошибка создания платежа: {str(e)}"},
+                status=500,
+            )
+
+
+class PaymentIntentView(APIView):
+    """Альтернативный эндпоинт с использованием PaymentIntent"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        course_id = request.data.get("course_id")
+        if not course_id:
+            return Response(
+                {"error": "Необходимо указать course_id"},
+                status=400,
+            )
+
+        course = get_object_or_404(Course, id=course_id)
+        amount = 1000.00
+
+        try:
+            intent_data = create_payment_intent(amount, course.name)
+            return Response(intent_data, status=200)
+        except Exception as e:
+            return Response(
+                {"error": f"Ошибка создания PaymentIntent: {str(e)}"},
+                status=500,
+            )
