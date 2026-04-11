@@ -57,6 +57,7 @@ class Payment(models.Model):
     class PaymentType(models.TextChoices):
         CASH = "cash", "Наличными"
         BANK = "bank", "Перевод на счёт"
+        CARD = "card", "Банковская карта"
 
     payer = models.ForeignKey(
         User,
@@ -77,6 +78,12 @@ class Payment(models.Model):
     )
     type = models.CharField(
         max_length=20, choices=PaymentType.choices, verbose_name="Способ оплаты"
+    )
+    stripe_session_id = models.CharField(
+        max_length=255,
+        **NULLABLE,
+        verbose_name="ID сессии Stripe",
+        help_text="Идентификатор сессии оплаты в Stripe",
     )
 
     def __str__(self):
